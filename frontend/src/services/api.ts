@@ -39,6 +39,16 @@ export const authService = {
     return response.data;
   },
 
+  verifyEmail: async (token: string): Promise<{ message: string }> => {
+    const response = await api.post(`/auth/verify-email?token=${token}`);
+    return response.data;
+  },
+
+  resendVerification: async (email: string): Promise<{ message: string }> => {
+    const response = await api.post(`/auth/resend-verification?email=${email}`);
+    return response.data;
+  },
+
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');

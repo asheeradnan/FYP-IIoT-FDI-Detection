@@ -30,7 +30,7 @@ interface PendingUser {
   id: number;
   email: string;
   full_name: string;
-  organization: string;
+  organization?: string;
   created_at: string;
 }
 
@@ -39,7 +39,7 @@ interface Analytics {
   pending_users: number;
   total_anomalies: number;
   anomalies_today: number;
-  attack_types: { [key: string]: number };
+  attack_types?: { [key: string]: number };
 }
 
 export const AdminDashboard: React.FC = () => {
@@ -386,8 +386,9 @@ export const AdminDashboard: React.FC = () => {
                             'from-cyan-500 to-blue-500',
                             'from-emerald-500 to-teal-500'
                           ];
-                          const total = Object.values(analytics.attack_types).reduce((a, b) => a + b, 0);
-                          const percentage = Math.round((count / total) * 100);
+                          const attackTypes = analytics.attack_types || {};
+                          const total = Object.values(attackTypes).reduce((a, b) => a + b, 0);
+                          const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
                           
                           return (
                             <div key={type} className="bg-slate-700/50 rounded-xl p-4 hover:bg-slate-700 transition-colors">

@@ -4,7 +4,8 @@ from app.database import get_db
 from app.models import User, UserStatus, UserRole
 from app.schemas import UserCreate, UserLogin, Token, UserResponse
 from app.utils.auth import verify_password, get_password_hash, create_access_token
-from datetime import timedelta
+from app.utils.email_service import email_service
+from datetime import timedelta, datetime, timezone
 from app.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -36,8 +37,9 @@ async def signup(user: UserCreate, db: Session = Depends(get_db)):
             detail="Email already registered"
         )
     
-    # TODO: Verify reCAPTCHA token
-    # This would require making a request to Google's reCAPTCHA API
+    # Generate email verification token
+    verification_token = email_service.generate_verification_token()
+    verification_expires = datetime.now(timezone.utc) + timedelta(hours=24)
     
     # Create new user
     hashed_password = get_password_hash(user.password)
@@ -48,14 +50,89 @@ async def signup(user: UserCreate, db: Session = Depends(get_db)):
         hashed_password=hashed_password,
         role=UserRole.USER,
         status=UserStatus.PENDING,
-        is_active=False
+        is_active=False,
+        email_verified=False,
+        email_verification_token=verification_token,
+        email_verification_expires=verification_expires
     )
     
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     
+    # Send verification email
+    email_service.send_verification_email(
+        to_email=user.email,
+        user_name=user.name,
+        token=verification_token
+    )
+    
     return db_user
+
+
+@router.post("/verify-email")
+async def verify_email(token: str, db: Session = Depends(get_db)):
+    """Verify user's email address"""
+    
+    user = db.query(User).filter(User.email_verification_token == token).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid verification token"
+        )
+    
+    if user.email_verified:
+        return {"message": "Email already verified"}
+    
+    if user.email_verification_expires and user.email_verification_expires < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification token has expired. Please request a new one."
+        )
+    
+    # Mark email as verified
+    user.email_verified = True
+    user.email_verification_token = None
+    user.email_verification_expires = None
+    db.commit()
+    
+    return {"message": "Email verified successfully. Please wait for admin approval."}
+
+
+@router.post("/resend-verification")
+async def resend_verification_email(email: str, db: Session = Depends(get_db)):
+    """Resend verification email"""
+    
+    user = db.query(User).filter(User.email == email).first()
+    
+    if not user:
+        # Don't reveal if email exists
+        return {"message": "If the email exists, a verification link has been sent."}
+    
+    if user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is already verified"
+        )
+    
+    # Generate new token
+    verification_token = email_service.generate_verification_token()
+    verification_expires = datetime.now(timezone.utc) + timedelta(hours=24)
+    
+    user.email_verification_token = verification_token
+    user.email_verification_expires = verification_expires
+    db.commit()
+    
+    # Send verification email
+    email_service.send_verification_email(
+        to_email=user.email,
+        user_name=user.name,
+        token=verification_token
+    )
+    
+    return {"message": "If the email exists, a verification link has been sent."}
+
 
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin, db: Session = Depends(get_db)):
@@ -68,6 +145,13 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
+        )
+    
+    # Check if email is verified
+    if not user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email before logging in"
         )
     
     # Check if user is approved

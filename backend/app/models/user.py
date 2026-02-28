@@ -23,5 +23,11 @@ class User(Base):
     role = Column(SQLEnum(UserRole), default=UserRole.USER)
     status = Column(SQLEnum(UserStatus), default=UserStatus.PENDING)
     is_active = Column(Boolean, default=False)
+    
+    # Email verification fields
+    email_verified = Column(Boolean, default=False)
+    email_verification_token = Column(String, nullable=True)
+    email_verification_expires = Column(DateTime(timezone=True), nullable=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

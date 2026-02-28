@@ -4,11 +4,19 @@ from app.database import get_db
 from app.models import User, UserStatus, UserRole
 from app.schemas import UserResponse, UserApprovalRequest
 from app.utils.auth import decode_access_token
+from app.utils.email_service import email_service
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 security = HTTPBearer()
+
+
+class UserApprovalRequestExtended(BaseModel):
+    user_id: int
+    approved: bool
+    rejection_reason: Optional[str] = None
 
 def get_current_admin(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -47,13 +55,17 @@ async def get_pending_users(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    """Get all pending user registration requests"""
-    pending_users = db.query(User).filter(User.status == UserStatus.PENDING).all()
+    """Get all pending user registration requests (only email-verified users)"""
+    pending_users = db.query(User).filter(
+        User.status == UserStatus.PENDING,
+        User.email_verified == True
+    ).all()
     return pending_users
+
 
 @router.post("/approve-user")
 async def approve_user(
-    request: UserApprovalRequest,
+    request: UserApprovalRequestExtended,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
@@ -70,12 +82,23 @@ async def approve_user(
         user.status = UserStatus.APPROVED
         user.is_active = True
         message = "User approved successfully"
-        # TODO: Send approval email
+        
+        # Send approval email notification
+        email_service.send_approval_email(
+            to_email=user.email,
+            user_name=user.name
+        )
     else:
         user.status = UserStatus.DECLINED
         user.is_active = False
         message = "User declined"
-        # TODO: Send decline email
+        
+        # Send rejection email notification
+        email_service.send_rejection_email(
+            to_email=user.email,
+            user_name=user.name,
+            reason=request.rejection_reason
+        )
     
     db.commit()
     

@@ -25,11 +25,11 @@ interface SensorData {
 
 interface TopologyNode {
   id: string;
-  type: 'sensor' | 'plc' | 'hmi' | 'server';
-  name: string;
-  status: 'online' | 'offline' | 'alert';
-  x: number;
-  y: number;
+  type?: 'sensor' | 'plc' | 'hmi' | 'server';
+  name?: string;
+  status: 'online' | 'offline' | 'alert' | 'normal' | 'anomaly';
+  x?: number;
+  y?: number;
 }
 
 export const UserDashboard: React.FC = () => {
@@ -38,7 +38,8 @@ export const UserDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [sensorData, setSensorData] = useState<SensorData[]>([]);
-  const [topologyData, setTopologyData] = useState<TopologyNode[]>([]);
+  // Topology data for future use
+  const [, setTopologyData] = useState<TopologyNode[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 from typing import Optional
 from datetime import datetime
 from app.models.user import UserRole, UserStatus
@@ -12,7 +12,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
     confirm_password: str
-    recaptcha_token: str
+    recaptcha_token: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -23,10 +23,18 @@ class UserResponse(UserBase):
     role: UserRole
     status: UserStatus
     is_active: bool
+    email_verified: bool = False
     created_at: datetime
+    full_name: Optional[str] = None
     
     class Config:
         from_attributes = True
+    
+    @model_validator(mode='after')
+    def set_full_name(self):
+        if self.full_name is None:
+            self.full_name = self.name
+        return self
 
 class UserApprovalRequest(BaseModel):
     user_id: int

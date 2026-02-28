@@ -1,11 +1,13 @@
 export interface User {
   id: number;
-  name: string;
-  employee_id: string;
+  name?: string;
+  full_name: string;
+  employee_id?: string;
+  organization?: string;
   email: string;
   role: 'admin' | 'user';
-  status: 'pending' | 'approved' | 'declined';
-  is_active: boolean;
+  status: 'pending' | 'approved' | 'rejected' | 'declined';
+  is_active?: boolean;
   created_at: string;
 }
 
@@ -16,11 +18,13 @@ export interface LoginCredentials {
 
 export interface SignupData {
   name: string;
-  employee_id: string;
+  full_name: string;
+  employee_id?: string;
+  organization?: string;
   email: string;
   password: string;
-  confirm_password: string;
-  recaptcha_token: string;
+  confirm_password?: string;
+  recaptcha_token?: string;
 }
 
 export interface AuthResponse {
@@ -40,10 +44,12 @@ export interface Anomaly {
 
 export interface TopologyNode {
   id: string;
-  label: string;
-  status: 'normal' | 'anomaly';
-  x: number;
-  y: number;
+  label?: string;
+  name?: string;
+  type?: 'sensor' | 'plc' | 'hmi' | 'server';
+  status: 'normal' | 'anomaly' | 'online' | 'offline' | 'alert';
+  x?: number;
+  y?: number;
 }
 
 export interface TopologyEdge {
@@ -58,8 +64,11 @@ export interface Topology {
 
 export interface Analytics {
   total_users: number;
-  active_users: number;
+  active_users?: number;
   pending_users: number;
-  anomaly_frequency: number;
-  system_health: string;
+  total_anomalies: number;
+  anomalies_today: number;
+  anomaly_frequency?: number;
+  system_health?: string;
+  attack_types?: { [key: string]: number };
 }
